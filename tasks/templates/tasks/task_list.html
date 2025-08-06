@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load custom_tags %}
+{% block title %}Мои задачи{% endblock %}
+{% block content %}
+  <h2 class="title is-4">Мои задачи</h2>
+
+  <form method="get" class="mb-4">
+    <div class="columns is-multiline">
+      <div class="column is-3">
+        <input type="text" name="q" value="{{ query }}" class="input" placeholder="Поиск по теме или ФИО">
+      </div>
+      <div class="column is-2">
+        <input type="date" name="date_from" value="{{ date_from }}" class="input">
+      </div>
+      <div class="column is-2">
+        <input type="date" name="date_to" value="{{ date_to }}" class="input">
+      </div>
+      <div class="column is-2">
+        <button class="button is-info is-fullwidth" type="submit">Фильтр</button>
+      </div>
+      <div class="column is-3">
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}export=1" class="button is-success is-fullwidth">Скачать Excel</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="tabs is-boxed">
+    <ul>
+      <li class="is-active" onclick="showTab('creator')"><a>Созданные мной</a></li>
+      <li onclick="showTab('responsible')"><a>Мне поручены</a></li>
+      <li onclick="showTab('participant')"><a>Я участник</a></li>
+      <li onclick="showTab('completed')"><a>Завершённые</a></li>
+    </ul>
+  </div>
+
+  {% for role, tasks in tasks_by_role.items %}
+    <div class="task-tab" id="tab-{{ role }}" {% if role != 'creator' %}style="display:none"{% endif %}>
+      <table class="table is-striped is-fullwidth">
+        <thead>
+          <tr>
+            <th>Тема</th>
+            <th>Описание</th>
+            <th>Срок</th>
+            <th>Ответственный</th>
+            <th>Роль</th>
+            <th>Файл</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+          {% if role == 'completed' and not task.is_completed %}
+            {# Пропустить незавершённые #}
+          {% elif role != 'completed' and task.is_completed %}
+            {# Пропустить завершённые из других вкладок #}
+          {% else %}
+          <tr>
+            <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
+            <td>{{ task.description|truncatewords:12 }}</td>
+            <td>{{ task.deadline|date:"d.m.Y H:i" }}</td>
+            <td>
+              {% if task.responsible %}
+                {{ task.responsible.get_full_name|default:task.responsible.username }}
+              {% else %}<em>—</em>{% endif %}
+            </td>
+            <td>{{ roles_by_task|dict_get:task.id }}</td>
+            <td>
+              {% if task.file %}
+                <a href="{{ task.file.url }}" download>Скачать</a>
+              {% else %}<em>—</em>{% endif %}
+            </td>
+            <td>
+              {% if task.is_completed %}
+                <span class="tag is-success">Завершена</span>
+              {% else %}
+                <span class="tag is-warning">В работе</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if not task.is_completed and user == task.responsible %}
+                <form method="post" action="{% url 'complete_task' task.pk %}">
+                  {% csrf_token %}
+                  <button class="button is-small is-success" type="submit">Завершить</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %}
+        {% empty %}
+          <tr><td colspan="8">Нет задач</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+
+  <script>
+    function showTab(role) {
+      document.querySelectorAll('.task-tab').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tabs li').forEach(el => el.classList.remove('is-active'));
+      document.getElementById('tab-' + role).style.display = '';
+      event.currentTarget.classList.add('is-active');
+    }
+  </script>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Создание задачи{% endblock %}
+{% block content %}
+  <h2 class="title is-4">Новая задача</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="field">
+      <label class="label" for="id_title">Тема</label>
+      <div class="control">{{ form.title }}</div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="id_description">Описание задачи</label>
+      <div class="control">{{ form.description }}</div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="id_deadline">Срок выполнения</label>
+      <div class="control">
+        <input type="datetime-local" name="deadline" id="id_deadline" class="input" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label">Исполнитель</label>
+      <div class="control">
+        <select name="responsible" class="select input" required>
+          <option value="" disabled selected>Выберите исполнителя</option>
+          {% for user in users %}
+            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field" id="participant-container">
+      <label class="label">Дополнительные участники</label>
+      <div id="participant-rows">
+        <div class="field is-grouped mb-2 participant-row">
+          <div class="control">
+            <div class="select">
+              <select name="participants">
+                <option value="" disabled selected>Выберите участника</option>
+                {% for user in users %}
+                  <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="control">
+            <div class="select">
+              <select name="roles">
+                <option value="executor">Исполнитель</option>
+                <option value="responsible">Ответственный</option>
+                <option value="observer">Наблюдатель</option>
+              </select>
+            </div>
+          </div>
+          <div class="control">
+            <button type="button" class="button is-danger is-light" onclick="removeParticipantRow(this)">Удалить</button>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="button is-small is-link mt-2" onclick="addParticipantRow()">Добавить участника</button>
+    </div>
+
+    <div class="field">
+      <label class="label" for="id_file">Файл</label>
+      <div class="control">{{ form.file }}</div>
+    </div>
+
+    <div class="control">
+      <button class="button is-primary" type="submit">Создать</button>
+    </div>
+  </form>
+
+  <script>
+    function addParticipantRow() {
+      const container = document.getElementById('participant-rows');
+      const template = document.querySelector('.participant-row');
+      const newRow = template.cloneNode(true);
+      newRow.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+      container.appendChild(newRow);
+    }
+
+    function removeParticipantRow(button) {
+      const row = button.closest('.participant-row');
+      const container = document.getElementById('participant-rows');
+      if (container.children.length > 1) {
+        container.removeChild(row);
+      }
+    }
+  </script>
+{% endblock %}
