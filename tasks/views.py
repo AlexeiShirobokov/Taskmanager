@@ -1,10 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponseForbidden
 from django.utils.timezone import make_aware
 from django.db.models import Q
+from django.contrib import messages
 from .forms import TaskForm
-from .models import Task, TaskParticipant, TaskMessage, User
+from .models import Task, TaskParticipant, TaskMessage, TaskFile, User
 from io import BytesIO
 from datetime import datetime
 import pandas as pd
@@ -26,39 +27,59 @@ def task_list(request):
     query = request.GET.get('q', '')
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
+    active_tab = request.GET.get('tab', 'creator')
 
-    created_tasks = Task.objects.filter(creator=request.user, is_completed=False)
-    responsible_tasks = Task.objects.filter(responsible=request.user, is_completed=False)
-    participant_tasks = Task.objects.filter(participants__user=request.user, is_completed=False)
+    # Создаем базовые запросы без distinct()
+    created_tasks = Task.objects.filter(creator=request.user)
+    responsible_tasks = Task.objects.filter(responsible=request.user)
+    participant_tasks = Task.objects.filter(participants__user=request.user)
 
+    # Для completed_tasks также убираем distinct() и используем filter()
     completed_tasks = Task.objects.filter(
         Q(creator=request.user) |
         Q(responsible=request.user) |
         Q(participants__user=request.user),
         is_completed=True
-    ).distinct()
+    )
 
-    all_tasks = (created_tasks | responsible_tasks | participant_tasks).distinct()
-
+    # Применяем фильтры ко всем запросам
     if query:
-        all_tasks = all_tasks.filter(
-            Q(title__icontains=query) |
-            Q(responsible__first_name__icontains=query) |
-            Q(responsible__last_name__icontains=query)
-        )
+        query_filter = Q(title__icontains=query) | Q(responsible__first_name__icontains=query) | Q(
+            responsible__last_name__icontains=query)
+        created_tasks = created_tasks.filter(query_filter)
+        responsible_tasks = responsible_tasks.filter(query_filter)
+        participant_tasks = participant_tasks.filter(query_filter)
+        completed_tasks = completed_tasks.filter(query_filter)
 
     if date_from:
-        all_tasks = all_tasks.filter(deadline__gte=make_aware(datetime.strptime(date_from, "%Y-%m-%d")))
+        date_from_dt = make_aware(datetime.strptime(date_from, "%Y-%m-%d"))
+        created_tasks = created_tasks.filter(deadline__gte=date_from_dt)
+        responsible_tasks = responsible_tasks.filter(deadline__gte=date_from_dt)
+        participant_tasks = participant_tasks.filter(deadline__gte=date_from_dt)
+        completed_tasks = completed_tasks.filter(deadline__gte=date_from_dt)
+
     if date_to:
-        all_tasks = all_tasks.filter(deadline__lte=make_aware(datetime.strptime(date_to, "%Y-%m-%d")))
+        date_to_dt = make_aware(datetime.strptime(date_to, "%Y-%m-%d"))
+        created_tasks = created_tasks.filter(deadline__lte=date_to_dt)
+        responsible_tasks = responsible_tasks.filter(deadline__lte=date_to_dt)
+        participant_tasks = participant_tasks.filter(deadline__lte=date_to_dt)
+        completed_tasks = completed_tasks.filter(deadline__lte=date_to_dt)
 
     if 'export' in request.GET:
+        # Для экспорта используем union() вместо | для объединения запросов
+        all_tasks = created_tasks.union(
+            responsible_tasks,
+            participant_tasks,
+            completed_tasks
+        )
+
         data = [{
             'Тема': t.title,
             'Описание': t.description,
             'Срок': t.deadline.strftime('%Y-%m-%d %H:%M'),
             'Ответственный': t.responsible.get_full_name() if t.responsible else '',
             'Роль': get_user_role(request.user, t),
+            'Статус': 'Завершена' if t.is_completed else 'В работе'
         } for t in all_tasks]
 
         df = pd.DataFrame(data)
@@ -67,17 +88,25 @@ def task_list(request):
         output.seek(0)
         return FileResponse(output, as_attachment=True, filename="tasks.xlsx")
 
+    # Для отображения в шаблоне используем отдельные запросы
     tasks_by_role = {
-        'creator': created_tasks,
-        'responsible': responsible_tasks.exclude(id__in=created_tasks),
-        'participant': participant_tasks.exclude(id__in=created_tasks).exclude(id__in=responsible_tasks),
+        'creator': created_tasks.filter(is_completed=False),
+        'responsible': responsible_tasks.filter(is_completed=False).exclude(creator=request.user),
+        'participant': participant_tasks.filter(is_completed=False).exclude(creator=request.user).exclude(
+            responsible=request.user),
         'completed': completed_tasks,
     }
 
-    roles_by_task = {
-        task.id: get_user_role(request.user, task)
-        for task in all_tasks | completed_tasks
-    }
+    # Создаем roles_by_task без объединения запросов
+    roles_by_task = {}
+    for task in created_tasks:
+        roles_by_task[task.id] = get_user_role(request.user, task)
+    for task in responsible_tasks:
+        roles_by_task[task.id] = get_user_role(request.user, task)
+    for task in participant_tasks:
+        roles_by_task[task.id] = get_user_role(request.user, task)
+    for task in completed_tasks:
+        roles_by_task[task.id] = get_user_role(request.user, task)
 
     return render(request, 'tasks/task_list.html', {
         'query': query,
@@ -85,15 +114,15 @@ def task_list(request):
         'date_to': date_to,
         'tasks_by_role': tasks_by_role,
         'roles_by_task': roles_by_task,
+        'active_tab': active_tab,
     })
-
 
 @login_required
 def task_create(request):
     users = User.objects.exclude(id=request.user.id)
 
     if request.method == 'POST':
-        form = TaskForm(request.POST, request.FILES)
+        form = TaskForm(request.POST)
         if form.is_valid():
             task = form.save(commit=False)
             task.creator = request.user
@@ -103,6 +132,7 @@ def task_create(request):
                 task.responsible_id = responsible_id
             task.save()
 
+            # Обрабатываем участников
             participants = request.POST.getlist('participants')
             roles = request.POST.getlist('roles')
             for user_id, role in zip(participants, roles):
@@ -112,7 +142,17 @@ def task_create(request):
                         user_id=user_id,
                         role=role
                     )
-            return redirect('task_list')
+
+            # Обрабатываем файлы
+            files = request.FILES.getlist('files')
+            for file in files:
+                TaskFile.objects.create(
+                    task=task,
+                    file=file,
+                    uploaded_by=request.user
+                )
+
+            return redirect('task_detail', pk=task.pk)
     else:
         form = TaskForm()
 
@@ -122,32 +162,50 @@ def task_create(request):
 @login_required
 def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk)
+
+    # Проверка прав доступа
+    if not (request.user == task.creator or
+            request.user == task.responsible or
+            task.participants.filter(user=request.user).exists()):
+        return HttpResponseForbidden("У вас нет доступа к этой задаче")
+
     participants = TaskParticipant.objects.filter(task=task)
-    messages = task.messages.all().order_by('timestamp')
+    task_messages = task.messages.all().order_by('timestamp')
 
     can_complete = (
-        request.user == task.creator or
-        request.user == task.responsible or
-        TaskParticipant.objects.filter(task=task, user=request.user).exists()
+            request.user == task.creator or
+            request.user == task.responsible or
+            TaskParticipant.objects.filter(task=task, user=request.user, role__in=['executor', 'responsible']).exists()
     )
 
     if request.method == 'POST':
-        if 'new_file' in request.FILES:
-            task.file = request.FILES['new_file']
-            task.save()
+        # Обработка загрузки файлов
+        if 'files' in request.FILES:
+            files = request.FILES.getlist('files')
+            for file in files:
+                TaskFile.objects.create(
+                    task=task,
+                    file=file,
+                    uploaded_by=request.user
+                )
+            messages.success(request, f'Загружено {len(files)} файлов')
             return redirect('task_detail', pk=pk)
-        elif request.POST.get("content"):
-            TaskMessage.objects.create(
-                task=task,
-                sender=request.user,
-                content=request.POST["content"]
-            )
-            return redirect('task_detail', pk=pk)
+
+        # Обработка отправки сообщения
+        elif 'content' in request.POST:
+            content = request.POST.get('content')
+            if content:
+                TaskMessage.objects.create(
+                    task=task,
+                    sender=request.user,
+                    content=content
+                )
+                return redirect('task_detail', pk=pk)
 
     return render(request, 'tasks/task_detail.html', {
         'task': task,
         'participants': participants,
-        'messages': messages,
+        'task_messages': task_messages,
         'can_complete': can_complete,
     })
 
@@ -155,11 +213,40 @@ def task_detail(request, pk):
 @login_required
 def complete_task(request, pk):
     task = get_object_or_404(Task, pk=pk)
-    if not task.is_completed and (
-        request.user == task.creator or
-        request.user == task.responsible or
-        TaskParticipant.objects.filter(task=task, user=request.user).exists()
-    ):
+
+    # Проверка прав доступа
+    if not (request.user == task.creator or
+            request.user == task.responsible or
+            TaskParticipant.objects.filter(task=task, user=request.user,
+                                           role__in=['executor', 'responsible']).exists()):
+        return HttpResponseForbidden("У вас нет прав для завершения этой задачи")
+
+    if not task.is_completed:
         task.is_completed = True
         task.save()
+        messages.success(request, 'Задача отмечена как завершенная')
+
     return redirect('task_list')
+
+
+@login_required
+def upload_files(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+
+    # Проверка прав доступа
+    if not (request.user == task.creator or
+            request.user == task.responsible or
+            task.participants.filter(user=request.user).exists()):
+        return HttpResponseForbidden("У вас нет прав для загрузки файлов в эту задачу")
+
+    if request.method == 'POST':
+        files = request.FILES.getlist('files')
+        for file in files:
+            TaskFile.objects.create(
+                task=task,
+                file=file,
+                uploaded_by=request.user
+            )
+        messages.success(request, f'Загружено {len(files)} файлов')
+
+    return redirect('task_detail', pk=task.pk)

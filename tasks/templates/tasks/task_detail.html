@@ -17,9 +17,6 @@
         <span class="tag is-warning">В работе</span>
       {% endif %}
     </p>
-    {% if task.file %}
-      <p><strong>Файл:</strong> <a href="{{ task.file.url }}" download>Скачать</a></p>
-    {% endif %}
 
     {% if can_complete and not task.is_completed %}
       <form method="post" action="{% url 'complete_task' task.pk %}" class="mt-3">
@@ -31,58 +28,81 @@
     {% if user == task.creator %}
       <a href="{% url 'task_create' %}?edit={{ task.pk }}" class="button is-warning is-small mt-2">Редактировать</a>
     {% endif %}
+  </div>
 
-    <!-- Форма загрузки файла -->
-    <form method="post" enctype="multipart/form-data" action="{% url 'task_detail' task.pk %}" class="mt-4">
+  <div class="box">
+    <h3 class="title is-5">Файлы</h3>
+
+    <!-- Форма загрузки файлов -->
+    {% if user in task.participants.all or user == task.creator or user == task.responsible %}
+    <form method="post" enctype="multipart/form-data" action="{% url 'upload_files' task.pk %}">
       {% csrf_token %}
       <div class="field">
-        <label class="label">Прикрепить файл</label>
+        <label class="label">Добавить файлы (можно выбрать несколько):</label>
         <div class="control">
-          <input type="file" name="new_file" class="input" required>
+          <input type="file" name="files" multiple class="input">
         </div>
       </div>
-      <div class="control mt-2">
-        <button type="submit" class="button is-info is-small">Загрузить</button>
+      <button class="button is-link" type="submit">Загрузить</button>
+    </form>
+    {% endif %}
+
+    <!-- Список файлов -->
+    <div class="mt-4">
+      {% if task.files.all %}
+        <ul>
+          {% for file in task.files.all %}
+            <li class="mb-2">
+              <a href="{{ file.file.url }}" download class="is-link">
+                📎 {{ file.filename }}
+              </a>
+              ({{ file.file.size|filesizeformat }})
+              <small class="has-text-grey">загружено {{ file.uploaded_at|date:"d.m.Y H:i" }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p><em>Нет прикрепленных файлов</em></p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="box">
+    <h3 class="title is-5">Участники</h3>
+    <ul>
+      {% for participant in participants %}
+        <li>{{ participant.user.get_full_name|default:participant.user.username }} — {{ participant.get_role_display }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="box">
+    <h3 class="title is-5">Сообщения</h3>
+    <div id="messages">
+      {% for message in task_messages %}
+        <article class="message is-small">
+          <div class="message-header">
+            <p>{{ message.sender.get_full_name|default:message.sender.username }} — {{ message.timestamp|date:"d.m.Y H:i" }}</p>
+          </div>
+          <div class="message-body">
+            {{ message.content|linebreaksbr }}
+          </div>
+        </article>
+      {% empty %}
+        <p>Нет сообщений</p>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{% url 'task_detail' task.pk %}" class="mt-4">
+      {% csrf_token %}
+      <div class="field">
+        <div class="control">
+          <textarea name="content" class="textarea" placeholder="Напишите сообщение..." required></textarea>
+        </div>
+      </div>
+      <div class="control">
+        <button class="button is-link is-small">Отправить</button>
       </div>
     </form>
   </div>
-
-  <hr>
-
-  <h3 class="title is-5">Участники</h3>
-  <ul>
-    {% for participant in participants %}
-      <li>{{ participant.user.get_full_name|default:participant.user.username }} — {{ participant.get_role_display }}</li>
-    {% endfor %}
-  </ul>
-
-  <hr>
-
-  <h3 class="title is-5">Сообщения</h3>
-  <div id="messages">
-    {% for message in messages %}
-      <article class="message is-small">
-        <div class="message-header">
-          <p>{{ message.sender.get_full_name|default:message.sender.username }} — {{ message.timestamp|date:"d.m.Y H:i" }}</p>
-        </div>
-        <div class="message-body">
-          {{ message.content|linebreaksbr }}
-        </div>
-      </article>
-    {% empty %}
-      <p>Нет сообщений</p>
-    {% endfor %}
-  </div>
-
-  <form method="post" action="{% url 'task_detail' task.pk %}" class="mt-4">
-    {% csrf_token %}
-    <div class="field">
-      <div class="control">
-        <textarea name="content" class="textarea" placeholder="Напишите сообщение..." required></textarea>
-      </div>
-    </div>
-    <div class="control">
-      <button class="button is-link is-small">Отправить</button>
-    </div>
-  </form>
 {% endblock %}

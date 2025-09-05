@@ -1,12 +1,27 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
+import os
+
+
+class TaskFile(models.Model):
+    task = models.ForeignKey("Task", on_delete=models.CASCADE, related_name="files")
+    file = models.FileField(upload_to="task_files/%Y/%m/%d/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.file.name}"
+
+    @property
+    def filename(self):
+        return os.path.basename(self.file.name)
 
 
 class Task(models.Model):
     title = models.CharField("Тема", max_length=255)
     description = models.TextField("Описание задачи")
     deadline = models.DateTimeField("Срок выполнения")
-    file = models.FileField("Файл", upload_to='tasks/files/', blank=True, null=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
 
     creator = models.ForeignKey(
@@ -19,7 +34,7 @@ class Task(models.Model):
         verbose_name="Ответственный"
     )
     is_delegated = models.BooleanField("Делегировано", default=False)
-    is_completed = models.BooleanField(default=False)  # новое поле
+    is_completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} (до {self.deadline.strftime('%d.%m.%Y')})"

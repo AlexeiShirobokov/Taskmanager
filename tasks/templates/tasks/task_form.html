@@ -7,12 +7,16 @@
 
     <div class="field">
       <label class="label" for="id_title">Тема</label>
-      <div class="control">{{ form.title }}</div>
+      <div class="control">
+        <input type="text" name="title" id="id_title" class="input" required maxlength="200">
+      </div>
     </div>
 
     <div class="field">
       <label class="label" for="id_description">Описание задачи</label>
-      <div class="control">{{ form.description }}</div>
+      <div class="control">
+        <textarea name="description" id="id_description" class="textarea" rows="4" required></textarea>
+      </div>
     </div>
 
     <div class="field">
@@ -66,8 +70,10 @@
     </div>
 
     <div class="field">
-      <label class="label" for="id_file">Файл</label>
-      <div class="control">{{ form.file }}</div>
+      <label class="label" for="id_files">Файлы (можно выбрать несколько)</label>
+      <div class="control">
+        <input type="file" name="files" id="id_files" multiple class="input">
+      </div>
     </div>
 
     <div class="control">

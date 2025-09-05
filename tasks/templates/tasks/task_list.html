@@ -10,10 +10,10 @@
         <input type="text" name="q" value="{{ query }}" class="input" placeholder="Поиск по теме или ФИО">
       </div>
       <div class="column is-2">
-        <input type="date" name="date_from" value="{{ date_from }}" class="input">
+        <input type="date" name="date_from" value="{{ date_from }}" class="input" placeholder="От">
       </div>
       <div class="column is-2">
-        <input type="date" name="date_to" value="{{ date_to }}" class="input">
+        <input type="date" name="date_to" value="{{ date_to }}" class="input" placeholder="До">
       </div>
       <div class="column is-2">
         <button class="button is-info is-fullwidth" type="submit">Фильтр</button>
@@ -26,15 +26,16 @@
 
   <div class="tabs is-boxed">
     <ul>
-      <li class="is-active" onclick="showTab('creator')"><a>Созданные мной</a></li>
-      <li onclick="showTab('responsible')"><a>Мне поручены</a></li>
-      <li onclick="showTab('participant')"><a>Я участник</a></li>
-      <li onclick="showTab('completed')"><a>Завершённые</a></li>
+      <li class="{% if active_tab == 'creator' %}is-active{% endif %}" onclick="showTab('creator')"><a>Созданные мной</a></li>
+      <li class="{% if active_tab == 'responsible' %}is-active{% endif %}" onclick="showTab('responsible')"><a>Мне поручены</a></li>
+      <li class="{% if active_tab == 'participant' %}is-active{% endif %}" onclick="showTab('participant')"><a>Я участник</a></li>
+      <li class="{% if active_tab == 'completed' %}is-active{% endif %}" onclick="showTab('completed')"><a>Завершённые</a></li>
     </ul>
   </div>
 
   {% for role, tasks in tasks_by_role.items %}
-    <div class="task-tab" id="tab-{{ role }}" {% if role != 'creator' %}style="display:none"{% endif %}>
+    <div class="task-tab" id="tab-{{ role }}" {% if role != active_tab %}style="display:none"{% endif %}>
+      {% if tasks %}
       <table class="table is-striped is-fullwidth">
         <thead>
           <tr>
@@ -43,18 +44,13 @@
             <th>Срок</th>
             <th>Ответственный</th>
             <th>Роль</th>
-            <th>Файл</th>
+            <th>Файлы</th>
             <th>Статус</th>
-            <th></th>
+            <th>Действия</th>
           </tr>
         </thead>
         <tbody>
         {% for task in tasks %}
-          {% if role == 'completed' and not task.is_completed %}
-            {# Пропустить незавершённые #}
-          {% elif role != 'completed' and task.is_completed %}
-            {# Пропустить завершённые из других вкладок #}
-          {% else %}
           <tr>
             <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
             <td>{{ task.description|truncatewords:12 }}</td>
@@ -66,9 +62,15 @@
             </td>
             <td>{{ roles_by_task|dict_get:task.id }}</td>
             <td>
-              {% if task.file %}
-                <a href="{{ task.file.url }}" download>Скачать</a>
-              {% else %}<em>—</em>{% endif %}
+              {% with total_files=task.files.count %}
+                {% if total_files > 0 %}
+                  <a href="{% url 'task_detail' task.pk %}#files">
+                    📎 {{ total_files }} файл(ов)
+                  </a>
+                {% else %}
+                  <em>—</em>
+                {% endif %}
+              {% endwith %}
             </td>
             <td>
               {% if task.is_completed %}
@@ -86,12 +88,14 @@
               {% endif %}
             </td>
           </tr>
-          {% endif %}
-        {% empty %}
-          <tr><td colspan="8">Нет задач</td></tr>
         {% endfor %}
         </tbody>
       </table>
+      {% else %}
+        <div class="notification is-info">
+          Нет задач в этой категории
+        </div>
+      {% endif %}
     </div>
   {% endfor %}
 
@@ -101,6 +105,20 @@
       document.querySelectorAll('.tabs li').forEach(el => el.classList.remove('is-active'));
       document.getElementById('tab-' + role).style.display = '';
       event.currentTarget.classList.add('is-active');
+
+      // Обновляем URL с параметром tab
+      const url = new URL(window.location);
+      url.searchParams.set('tab', role);
+      window.history.replaceState({}, '', url);
     }
+
+    // При загрузке страницы активируем нужную вкладку
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      if (tab) {
+        showTab(tab);
+      }
+    });
   </script>
 {% endblock %}
