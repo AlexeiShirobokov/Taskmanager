@@ -29,7 +29,7 @@
     <div class="field">
       <label class="label">Исполнитель</label>
       <div class="control">
-        <select name="responsible" class="select input" required>
+        <select name="responsible" class="select input select2-search" required>
           <option value="" disabled selected>Выберите исполнителя</option>
           {% for user in users %}
             <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
@@ -42,9 +42,9 @@
       <label class="label">Дополнительные участники</label>
       <div id="participant-rows">
         <div class="field is-grouped mb-2 participant-row">
-          <div class="control">
-            <div class="select">
-              <select name="participants">
+          <div class="control is-expanded">
+            <div class="select is-fullwidth">
+              <select name="participants" class="select2-search">
                 <option value="" disabled selected>Выберите участника</option>
                 {% for user in users %}
                   <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
@@ -81,21 +81,138 @@
     </div>
   </form>
 
+  <!-- Подключаем Select2 для поиска в выпадающих списках -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
   <script>
+    // Инициализация Select2 после загрузки страницы
+    document.addEventListener('DOMContentLoaded', function() {
+      // Инициализируем Select2 для всех элементов с классом select2-search
+      $('.select2-search').select2({
+        width: '100%',
+        placeholder: 'Начните вводить для поиска',
+        language: {
+          noResults: function() {
+            return "Ничего не найдено";
+          },
+          searching: function() {
+            return "Поиск...";
+          }
+        }
+      });
+    });
+
     function addParticipantRow() {
       const container = document.getElementById('participant-rows');
       const template = document.querySelector('.participant-row');
       const newRow = template.cloneNode(true);
-      newRow.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+
+      // Сбрасываем значения
+      newRow.querySelectorAll('select').forEach(select => {
+        select.selectedIndex = 0;
+        // Удаляем классы Select2, если они есть
+        if (select.classList.contains('select2-hidden-accessible')) {
+          $(select).siblings('.select2-container').remove();
+          select.classList.remove('select2-hidden-accessible');
+        }
+      });
+
       container.appendChild(newRow);
+
+      // Инициализируем Select2 для новых элементов
+      $(newRow).find('.select2-search').select2({
+        width: '100%',
+        placeholder: 'Начните вводить для поиска',
+        language: {
+          noResults: function() {
+            return "Ничего не найдено";
+          },
+          searching: function() {
+            return "Поиск...";
+          }
+        }
+      });
     }
 
     function removeParticipantRow(button) {
       const row = button.closest('.participant-row');
       const container = document.getElementById('participant-rows');
+
+      // Уничтожаем Select2 перед удалением, если он был инициализирован
+      const select2Elements = $(row).find('.select2-search');
+      if (select2Elements.length > 0) {
+        select2Elements.select2('destroy');
+      }
+
       if (container.children.length > 1) {
         container.removeChild(row);
       }
     }
   </script>
+
+  <style>
+    /* Стили для Select2 чтобы лучше интегрировался с Bulma */
+    .select2-container--default .select2-selection--single {
+      height: 2.5em;
+      border: 1px solid #dbdbdb;
+      border-radius: 4px;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+      line-height: 2.5em;
+      padding-left: 0.75em;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+      height: 2.5em;
+    }
+
+    .select2-container--default .select2-dropdown {
+      border: 1px solid #dbdbdb;
+      border-radius: 4px;
+    }
+
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+      border: 1px solid #dbdbdb;
+      border-radius: 4px;
+    }
+
+    /* Убираем стрелки у выпадающих списков для дополнительных участников */
+    #participant-container .select:after {
+      display: none !important;
+    }
+
+    #participant-container .select select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 0.75em;
+      background-image: none;
+    }
+
+    /* Убираем стрелки у Select2 элементов */
+    #participant-container .select2-container--default .select2-selection--single .select2-selection__arrow {
+      display: none;
+    }
+
+    /* Делаем поля одинаковой ширины */
+    #participant-container .field.is-grouped {
+      align-items: stretch;
+    }
+
+    #participant-container .field.is-grouped > .control:first-child {
+      flex-grow: 2;
+    }
+
+    #participant-container .field.is-grouped > .control:nth-child(2) {
+      flex-grow: 1;
+      margin: 0 0.5rem;
+    }
+
+    #participant-container .field.is-grouped > .control:last-child {
+      flex-grow: 0;
+    }
+  </style>
 {% endblock %}

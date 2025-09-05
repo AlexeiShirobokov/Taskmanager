@@ -117,9 +117,11 @@ def task_list(request):
         'active_tab': active_tab,
     })
 
+
 @login_required
 def task_create(request):
-    users = User.objects.exclude(id=request.user.id)
+    # Сортируем пользователей по имени и фамилии
+    users = User.objects.exclude(id=request.user.id).order_by('first_name', 'last_name', 'username')
 
     if request.method == 'POST':
         form = TaskForm(request.POST)
