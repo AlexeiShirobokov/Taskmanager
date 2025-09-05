@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}Дашборд - Менеджер задач{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="box has-background-primary-light">
+        <div class="columns is-vcentered">
+            <div class="column">
+                <h1 class="title is-2 has-text-primary">📊 Дашборд эффективности</h1>
+                <p class="subtitle">Анализ вашей продуктивности в реальном времени</p>
+            </div>
+            <div class="column has-text-right">
+                <div class="tags are-large">
+                    <span class="tag is-primary">Обновлено: {% now "H:i" %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="columns is-multiline">
+        <div class="column is-one-quarter">
+            <div class="card has-background-white-bis">
+                <div class="card-content has-text-centered">
+                    <div class="icon-text is-justify-content-center">
+                        <span class="icon has-text-info">
+                            <i class="fas fa-tasks fa-2x"></i>
+                        </span>
+                    </div>
+                    <p class="title has-text-info">{{ total_tasks }}</p>
+                    <p class="subtitle">Всего задач</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-one-quarter">
+            <div class="card has-background-success-light">
+                <div class="card-content has-text-centered">
+                    <div class="icon-text is-justify-content-center">
+                        <span class="icon has-text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </span>
+                    </div>
+                    <p class="title has-text-success">{{ completed_tasks }}</p>
+                    <p class="subtitle">Выполнено</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-one-quarter">
+            <div class="card has-background-danger-light">
+                <div class="card-content has-text-centered">
+                    <div class="icon-text is-justify-content-center">
+                        <span class="icon has-text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </span>
+                    </div>
+                    <p class="title has-text-danger">{{ overdue_tasks }}</p>
+                    <p class="subtitle">Просрочено</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-one-quarter">
+            <div class="card has-background-info-light">
+                <div class="card-content has-text-centered">
+                    <div class="icon-text is-justify-content-center">
+                        <span class="icon has-text-info">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </span>
+                    </div>
+                    <p class="title has-text-info">{{ completion_rate }}%</p>
+                    <p class="subtitle">Эффективность</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="box">
+        <h2 class="title is-4">📈 Прогресс выполнения</h2>
+        <div class="progress-container">
+            <progress class="progress is-success is-large" value="{{ completion_rate }}" max="100">
+                {{ completion_rate }}%
+            </progress>
+            <div class="level mt-4">
+                <div class="level-item has-text-centered">
+                    <div>
+                        <p class="heading">Выполнено</p>
+                        <p class="title is-4 has-text-success">{{ completed_tasks }}</p>
+                    </div>
+                </div>
+                <div class="level-item has-text-centered">
+                    <div>
+                        <p class="heading">В работе</p>
+                        <p class="title is-4">{{ total_tasks|add:completed_tasks|add:overdue_tasks }}</p>
+                    </div>
+                </div>
+                <div class="level-item has-text-centered">
+                    <div>
+                        <p class="heading">Просрочено</p>
+                        <p class="title is-4 has-text-danger">{{ overdue_tasks }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="columns is-multiline">
+        <div class="column is-half">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">📋 Статус задач</h3>
+                    {{ completion_chart|safe }}
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-half">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">📅 Динамика создания</h3>
+                    {{ timeline_chart|safe }}
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-half">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">👥 По ответственным</h3>
+                    {{ responsible_chart|safe }}
+                </div>
+            </div>
+        </div>
+
+        <div class="column is-half">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">⏰ Сроки выполнения</h3>
+                    {{ deadline_chart|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="columns">
+        <div class="column">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">✅ Недавно выполненные</h3>
+                    {% if recently_completed %}
+                        <div class="content">
+                            {% for task in recently_completed %}
+                            <article class="media">
+                                <figure class="media-left">
+                                    <span class="icon has-text-success">
+                                        <i class="fas fa-check-circle"></i>
+                                    </span>
+                                </figure>
+                                <div class="media-content">
+                                    <div class="content">
+                                        <p>
+                                            <strong>{{ task.title }}</strong>
+                                            <br>
+                                            <small>Ответственный: {{ task.responsible.get_full_name|default:task.responsible.username }}</small>
+                                            <br>
+                                            <small>Срок: {{ task.deadline|date:"d.m.Y H:i" }}</small>
+                                        </p>
+                                    </div>
+                                </div>
+                            </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="has-text-centered py-4">
+                            <span class="icon is-large has-text-grey-light">
+                                <i class="fas fa-inbox fa-3x"></i>
+                            </span>
+                            <p class="has-text-grey">Нет выполненных задач</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="card">
+                <div class="card-content">
+                    <h3 class="title is-5">🚀 Предстоящие задачи</h3>
+                    {% if upcoming_tasks %}
+                        <div class="content">
+                            {% for task in upcoming_tasks %}
+                            <article class="media">
+                                <figure class="media-left">
+                                    <span class="icon has-text-warning">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </span>
+                                </figure>
+                                <div class="media-content">
+                                    <div class="content">
+                                        <p>
+                                            <strong>{{ task.title }}</strong>
+                                            <br>
+                                            <small>Ответственный: {{ task.responsible.get_full_name|default:task.responsible.username }}</small>
+                                            <br>
+                                            <small class="has-text-danger">До: {{ task.deadline|date:"d.m.Y H:i" }}</small>
+                                        </p>
+                                    </div>
+                                </div>
+                            </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="has-text-centered py-4">
+                            <span class="icon is-large has-text-grey-light">
+                                <i class="fas fa-calendar-check fa-3x"></i>
+                            </span>
+                            <p class="has-text-grey">Нет предстоящих задач</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Подключаем Font Awesome для иконок -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+<style>
+    .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .progress-container {
+        position: relative;
+    }
+
+    progress::-webkit-progress-value {
+        border-radius: 20px;
+        background: linear-gradient(45deg, #00d1b2, #3273dc);
+    }
+
+    .icon-text .icon {
+        margin-bottom: 0.5rem;
+    }
+
+    .media {
+        border-left: 3px solid transparent;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .media:hover {
+        border-left-color: #3273dc;
+        background: #f5f5f5;
+    }
+</style>
+{% endblock %}

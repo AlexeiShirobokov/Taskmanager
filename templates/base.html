@@ -11,10 +11,13 @@
   <div class="container">
     <nav class="level mb-5">
       <div class="level-left">
-        <h1 class="title is-4"><a href="/">Менеджер задач</a></h1>
+        <h1 class="title is-4">
+            <a href="/">Менеджер задач</a>
+            <a class="nav-link" href="{% url 'dashboard' %}">Дашборд</a>
+        </h1>
       </div>
       <div class="level-right">
-        <a class="button is-primary" href="{% url 'task_create' %}">Создать задачу</a>
+        <a class="button is-primary" href="{% url 'task_create' %}">Новая задача</a>
       </div>
     </nav>
     {% block content %}{% endblock %}
@@ -23,5 +26,10 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </body>
 </html>
