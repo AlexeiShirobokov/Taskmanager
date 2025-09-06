@@ -16,5 +16,5 @@ urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
     path('', include('tasks.urls')),
 
-] + router.urls + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + router.urls #+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) при продакшене убирать
 
