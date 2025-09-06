@@ -7,4 +7,14 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = ['title', 'description', 'deadline']
 
-# 'responsible', 'file'
+
+class DelegateTaskForm(forms.ModelForm):
+    new_responsible = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        label="Новый ответственный",
+        required=True
+    )
+
+    class Meta:
+        model = Task
+        fields = ['new_responsible']

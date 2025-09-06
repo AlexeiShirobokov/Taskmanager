@@ -4,21 +4,73 @@
     <meta charset="UTF-8">
     <title>{% block title %}Менеджер задач{% endblock %}</title>
     <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
+<style>
+  body{background:#fafbfc}
+  .container{max-width:1200px}
+  .card.clean{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 8px 24px rgba(18,38,63,.06);
+  }
+  .card.clean .card-body{padding:24px 28px}
+  .section-title{font-weight:700;font-size:22px;margin-bottom:12px}
+  .subtle{color:#6b7280}
+  .kv dt{font-weight:700}
+  .kv dd{margin:0}
+  .badge-soft-warning{
+    background:#ffe8a3; color:#6e5200; border-radius:8px; padding:.35rem .55rem; font-weight:600
+  }
+  .btn-float-success{
+    background:#34c759; color:#fff; border:0; border-radius:10px; padding:.5rem .85rem;
+    box-shadow:0 6px 14px rgba(52,199,89,.25)
+  }
+  .btn-float-success:hover{background:#2ebb50;color:#fff}
+  .list-dash{padding-left:1rem}
+  .list-dash li{list-style:disc}
+  .file-row{display:flex;gap:.5rem}
+  .file-row i{font-size:1.1rem;margin-top:.15rem;color:#276ef1}
+  .message-card{border:1px solid #eef0f4;border-radius:12px;padding:12px 14px}
+  .right-col .card.clean{margin-bottom:22px}
+</style>
+
 <body>
 <section class="section">
   <div class="container">
     <nav class="level mb-5">
       <div class="level-left">
-        <h1 class="title is-4">
-            <a href="/">Менеджер задач</a>
-            <a class="nav-link" href="{% url 'dashboard' %}">Дашборд</a>
-        </h1>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm mb-4">
+          <div class="container-fluid">
+            <a class="navbar-brand fw-bold text-primary" href="{% url 'task_list' %}">
+              <i class="bi bi-kanban"></i> Менеджер задач
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="Переключить меню">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                  <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                    <i class="bi bi-bar-chart"></i> Дашборд
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="btn btn-primary ms-3" href="{% url 'task_create' %}">
+                    <i class="bi bi-plus-lg"></i> Новая задача
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+
       </div>
-      <div class="level-right">
-        <a class="button is-primary" href="{% url 'task_create' %}">Новая задача</a>
-      </div>
+
     </nav>
     {% block content %}{% endblock %}
   </div>

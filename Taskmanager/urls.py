@@ -18,3 +18,6 @@ urlpatterns = [
 
 ] + router.urls #+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) при продакшене убирать
 
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

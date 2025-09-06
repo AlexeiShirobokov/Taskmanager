@@ -1,108 +1,151 @@
 {% extends 'base.html' %}
-{% load custom_tags %}
-{% block title %}Детали задачи{% endblock %}
+{% block title %}{{ task.title }}{% endblock %}
 
 {% block content %}
-  <h2 class="title is-4">{{ task.title }}</h2>
+<div class="container my-4">
 
-  <div class="box">
-    <p><strong>Описание:</strong> {{ task.description }}</p>
-    <p><strong>Срок:</strong> {{ task.deadline|date:"d.m.Y H:i" }}</p>
-    <p><strong>Ответственный:</strong> {{ task.responsible.get_full_name|default:task.responsible.username }}</p>
-    <p><strong>Создана:</strong> {{ task.created_at|date:"d.m.Y H:i" }}</p>
-    <p><strong>Статус:</strong>
-      {% if task.is_completed %}
-        <span class="tag is-success">Завершена</span>
-      {% else %}
-        <span class="tag is-warning">В работе</span>
-      {% endif %}
-    </p>
-
-    {% if can_complete and not task.is_completed %}
-      <form method="post" action="{% url 'complete_task' task.pk %}" class="mt-3">
-        {% csrf_token %}
-        <button class="button is-success is-small">Завершить задачу</button>
-      </form>
-    {% endif %}
-
-    {% if user == task.creator %}
-      <a href="{% url 'task_create' %}?edit={{ task.pk }}" class="button is-warning is-small mt-2">Редактировать</a>
-    {% endif %}
-  </div>
-
-  <div class="box">
-    <h3 class="title is-5">Файлы</h3>
-
-    <!-- Форма загрузки файлов -->
-    {% if can_upload_files %}
-    <form method="post" enctype="multipart/form-data" action="{% url 'upload_files' task.pk %}">
-      {% csrf_token %}
-      <div class="field">
-        <label class="label">Добавить файлы (можно выбрать несколько):</label>
-        <div class="control">
-          <input type="file" name="files" multiple class="input">
-        </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h2 class="mb-0">{{ task.title }}</h2>
+        <div class="small text-muted">#{{ task.id }}</div>
       </div>
-      <button class="button is-link" type="submit">Загрузить</button>
-    </form>
-    {% endif %}
 
-    <!-- Список файлов -->
-    <div class="mt-4">
-      {% if task.files.all %}
-        <ul>
-          {% for file in task.files.all %}
-            <li class="mb-2">
-              <a href="{{ file.file.url }}" download class="is-link">
-                📎 {{ file.filename }}
-              </a>
-              ({{ file.file.size|filesizeformat }})
-              <small class="has-text-grey">загружено {{ file.uploaded_at|date:"d.m.Y H:i" }}</small>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p><em>Нет прикрепленных файлов</em></p>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="box">
-    <h3 class="title is-5">Участники</h3>
-    <ul>
-      {% for participant in participants %}
-        <li>{{ participant.user.get_full_name|default:participant.user.username }} — {{ participant.get_role_display }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-
-  <div class="box">
-    <h3 class="title is-5">Сообщения</h3>
-    <div id="messages">
-      {% for message in task_messages %}
-        <article class="message is-small">
-          <div class="message-header">
-            <p>{{ message.sender.get_full_name|default:message.sender.username }} — {{ message.timestamp|date:"d.m.Y H:i" }}</p>
-          </div>
-          <div class="message-body">
-            {{ message.content|linebreaksbr }}
-          </div>
-        </article>
-      {% empty %}
-        <p>Нет сообщений</p>
-      {% endfor %}
+      <div class="d-flex flex-wrap gap-2">
+        {% if can_edit %}
+          <a href="{% url 'edit_task' task.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil"></i> Редактировать
+          </a>
+        {% endif %}
+        {% if can_delegate %}
+          <a href="{% url 'delegate_task' task.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-people"></i> Делегировать
+          </a>
+        {% endif %}
+        {% if can_complete and not task.is_completed %}
+          <a href="{% url 'complete_task' task.pk %}" class="btn btn-success">
+            <i class="bi bi-check-circle"></i> Завершить
+          </a>
+        {% endif %}
+      </div>
     </div>
 
-    <form method="post" action="{% url 'task_detail' task.pk %}" class="mt-4">
-      {% csrf_token %}
-      <div class="field">
-        <div class="control">
-          <textarea name="content" class="textarea" placeholder="Напишите сообщение..." required></textarea>
+
+  <div class="row g-4">
+    <!-- Левая колонка -->
+    <div class="col-lg-8">
+
+      <!-- Информация -->
+      <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Информация о задаче</h5>
+
+          <div class="row">
+            <div class="col-md-6 mb-2">
+              <strong>Статус:</strong>
+              {% if task.is_completed %}
+                <span class="badge bg-success">Завершена</span>
+              {% else %}
+                <span class="badge" style="background:#fff3cd;color:#856404;">В работе</span>
+              {% endif %}
+            </div>
+            <div class="col-md-6 mb-2"><strong>Автор:</strong> {{ task.creator.get_full_name|default:task.creator.username }}</div>
+            <div class="col-md-6 mb-2"><strong>Создана:</strong> {{ task.created_at|date:"d.m.Y H:i" }}</div>
+            <div class="col-md-6 mb-2"><strong>Ответственный:</strong> {{ task.responsible.get_full_name|default:task.responsible.username }}</div>
+            <div class="col-md-6 mb-2"><strong>Срок выполнения:</strong> {{ task.deadline|date:"d.m.Y H:i" }}</div>
+          </div>
+
+          <div class="mt-3">
+            <strong>Описание:</strong>
+            <p class="mt-1">{{ task.description|linebreaksbr }}</p>
+          </div>
         </div>
       </div>
-      <div class="control">
-        <button class="button is-link is-small">Отправить</button>
+
+      <!-- Обсуждение -->
+      <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body">
+          <h5 class="mb-3">Обсуждение</h5>
+
+          {% if task_messages %}
+            <div class="mb-3">
+              {% for m in task_messages %}
+                <div class="border rounded-3 p-2 mb-2">
+                  <div class="d-flex justify-content-between">
+                    <strong>{{ m.sender.get_full_name|default:m.sender.username }}</strong>
+                    <small class="text-muted">{{ m.timestamp|date:"d.m.Y H:i" }}</small>
+                  </div>
+                  <div>{{ m.content|linebreaksbr }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted">Нет сообщений</p>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-2">
+              <textarea name="content" class="form-control" rows="2" placeholder="Напишите сообщение..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-send"></i> Отправить
+            </button>
+          </form>
+        </div>
       </div>
-    </form>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="col-lg-4">
+      <!-- Участники -->
+      <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Участники</h5>
+          {% if participants %}
+            <ul class="list-unstyled mb-0">
+              {% for p in participants %}
+                <li>{{ p.user.get_full_name|default:p.user.username }}
+                  <span class="badge bg-light text-dark">{{ p.get_role_display }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Нет участников</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Файлы -->
+      <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body">
+          <h5 class="mb-3">Файлы</h5>
+
+          {% if can_upload_files %}
+          <form method="post" enctype="multipart/form-data" class="mb-3">
+            {% csrf_token %}
+            <input type="file" name="files" multiple class="form-control mb-2">
+            <button type="submit" class="btn btn-primary">Загрузить</button>
+          </form>
+          {% endif %}
+
+          {% if task.files.all %}
+            <ul class="list-unstyled">
+              {% for f in task.files.all|dictsortreversed:"uploaded_at" %}
+                <li class="mb-2">
+                  <i class="bi bi-file-earmark"></i>
+                  <a href="{{ f.file.url }}" class="ms-1">{{ f.filename }}</a><br>
+                  <small class="text-muted">
+                    {{ f.file.size|filesizeformat }} • {{ f.uploaded_at|date:"d.m.Y H:i" }}
+                  </small>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Файлов нет</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 {% endblock %}

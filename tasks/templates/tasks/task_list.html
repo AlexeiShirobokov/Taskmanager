@@ -1,124 +1,116 @@
 {% extends 'base.html' %}
-{% load custom_tags %}
-{% block title %}Мои задачи{% endblock %}
-{% block content %}
-  <h2 class="title is-4">Мои задачи</h2>
+{% block title %}Дашборд{% endblock %}
 
-  <form method="get" class="mb-4">
-    <div class="columns is-multiline">
-      <div class="column is-3">
-        <input type="text" name="q" value="{{ query }}" class="input" placeholder="Поиск по теме или ФИО">
-      </div>
-      <div class="column is-2">
-        <input type="date" name="date_from" value="{{ date_from }}" class="input" placeholder="От">
-      </div>
-      <div class="column is-2">
-        <input type="date" name="date_to" value="{{ date_to }}" class="input" placeholder="До">
-      </div>
-      <div class="column is-2">
-        <button class="button is-info is-fullwidth" type="submit">Фильтр</button>
-      </div>
-      <div class="column is-3">
-        <a href="?{% if query %}q={{ query }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}export=1" class="button is-success is-fullwidth">Скачать Excel</a>
-      </div>
+{% block content %}
+<div class="container my-4">
+
+{#  <div class="d-flex justify-content-between align-items-center mb-4">#}
+{#    <h2 class="mb-0">Мои задачи</h2>#}
+{#    <a href="{% url 'task_create' %}" class="btn btn-success px-4">Новая задача</a>#}
+{#  </div>#}
+
+  <!-- Фильтры -->
+  <form method="get" class="row g-3 align-items-center mb-3">
+    <div class="col-lg-4">
+      <input type="text" name="q" class="form-control" placeholder="Поиск по теме или ФИО"
+             value="{{ query|default_if_none:'' }}">
+    </div>
+    <div class="col-lg-2">
+      <input type="date" name="date_from" class="form-control" value="{{ date_from|default_if_none:'' }}">
+    </div>
+    <div class="col-lg-2">
+      <input type="date" name="date_to" class="form-control" value="{{ date_to|default_if_none:'' }}">
+    </div>
+    <div class="col-lg-2">
+      <button class="btn btn-primary w-100">Фильтр</button>
+    </div>
+    <div class="col-lg-2">
+      <a class="btn btn-success w-100"
+         href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}export=1">
+        Скачать Excel
+      </a>
     </div>
   </form>
 
-  <div class="tabs is-boxed">
-    <ul>
-      <li class="{% if active_tab == 'creator' %}is-active{% endif %}" onclick="showTab('creator')"><a>Созданные мной</a></li>
-      <li class="{% if active_tab == 'responsible' %}is-active{% endif %}" onclick="showTab('responsible')"><a>Мне поручены</a></li>
-      <li class="{% if active_tab == 'participant' %}is-active{% endif %}" onclick="showTab('participant')"><a>Я участник</a></li>
-      <li class="{% if active_tab == 'completed' %}is-active{% endif %}" onclick="showTab('completed')"><a>Завершённые</a></li>
-    </ul>
-  </div>
+  <!-- Табы -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab == 'creator' %}active{% endif %}"
+         href="?tab=creator{% if query %}&q={{ query|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+        Созданные мной
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab == 'responsible' %}active{% endif %}"
+         href="?tab=responsible{% if query %}&q={{ query|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+        Мне поручены
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab == 'participant' %}active{% endif %}"
+         href="?tab=participant{% if query %}&q={{ query|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+        Я участник
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if active_tab == 'completed' %}active{% endif %}"
+         href="?tab=completed{% if query %}&q={{ query|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+        Завершённые
+      </a>
+    </li>
+  </ul>
 
-  {% for role, tasks in tasks_by_role.items %}
-    <div class="task-tab" id="tab-{{ role }}" {% if role != active_tab %}style="display:none"{% endif %}>
-      {% if tasks %}
-      <table class="table is-striped is-fullwidth">
-        <thead>
-          <tr>
-            <th>Тема</th>
-            <th>Описание</th>
-            <th>Срок</th>
-            <th>Ответственный</th>
-            <th>Роль</th>
-            <th>Файлы</th>
-            <th>Статус</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for task in tasks %}
-          <tr>
-            <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
-            <td>{{ task.description|truncatewords:12 }}</td>
-            <td>{{ task.deadline|date:"d.m.Y H:i" }}</td>
-            <td>
-              {% if task.responsible %}
-                {{ task.responsible.get_full_name|default:task.responsible.username }}
-              {% else %}<em>—</em>{% endif %}
+  <!-- Таблица -->
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead class="border-0">
+        <tr style="border-bottom:2px solid #eaecef">
+          <th>Тема</th>
+          <th>Описание</th>
+          <th>Срок</th>
+          <th class="text-center">Ответственный</th>
+          <th class="text-center">Роль</th>
+          <th class="text-center">Файлы</th>
+          <th class="text-center">Статус</th>
+          <th class="text-end">Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in current_tasks %}
+          <tr class="{% cycle '' 'table-light' %}">
+            <td style="width:18%;"><a href="{% url 'task_detail' t.id %}">{{ t.id }}</a></td>
+            <td style="width:22%;">{{ t.description|default:"—" }}</td>
+            <td style="width:16%;">{{ t.deadline|date:"d.m.Y H:i" }}</td>
+            <td class="text-center" style="width:16%;">{{ t.responsible.get_full_name|default:t.responsible.username|default:"—" }}</td>
+            <td class="text-center" style="width:12%;">{{ t.my_role }}</td>
+            <td class="text-center" style="width:10%;">
+              {% if t.files_count and t.files_count > 0 %}
+                <i class="bi bi-paperclip"></i>
+                <a href="{% url 'task_detail' t.id %}">{{ t.files_count }} файл(ов)</a>
+              {% else %}—{% endif %}
             </td>
-            <td>{{ roles_by_task|dict_get:task.id }}</td>
-            <td>
-              {% with total_files=task.files.count %}
-                {% if total_files > 0 %}
-                  <a href="{% url 'task_detail' task.pk %}#files">
-                    📎 {{ total_files }} файл(ов)
-                  </a>
-                {% else %}
-                  <em>—</em>
-                {% endif %}
-              {% endwith %}
-            </td>
-            <td>
-              {% if task.is_completed %}
-                <span class="tag is-success">Завершена</span>
+            <td class="text-center" style="width:10%;">
+              {% if t.is_completed %}
+                <span class="badge bg-success-subtle text-success-emphasis rounded-3 px-3 py-2">Завершена</span>
               {% else %}
-                <span class="tag is-warning">В работе</span>
+                <span class="badge bg-warning-subtle text-dark rounded-3 px-3 py-2">В работе</span>
               {% endif %}
             </td>
-            <td>
-              {% if not task.is_completed and user == task.responsible %}
-                <form method="post" action="{% url 'complete_task' task.pk %}">
-                  {% csrf_token %}
-                  <button class="button is-small is-success" type="submit">Завершить</button>
-                </form>
-              {% endif %}
+            <td class="text-end" style="width:10%;">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'task_detail' t.id %}">Открыть</a>
             </td>
           </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Ничего не найдено</td></tr>
         {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-        <div class="notification is-info">
-          Нет задач в этой категории
-        </div>
-      {% endif %}
-    </div>
-  {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-  <script>
-    function showTab(role) {
-      document.querySelectorAll('.task-tab').forEach(el => el.style.display = 'none');
-      document.querySelectorAll('.tabs li').forEach(el => el.classList.remove('is-active'));
-      document.getElementById('tab-' + role).style.display = '';
-      event.currentTarget.classList.add('is-active');
-
-      // Обновляем URL с параметром tab
-      const url = new URL(window.location);
-      url.searchParams.set('tab', role);
-      window.history.replaceState({}, '', url);
-    }
-
-    // При загрузке страницы активируем нужную вкладку
-    document.addEventListener('DOMContentLoaded', function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tab = urlParams.get('tab');
-      if (tab) {
-        showTab(tab);
-      }
-    });
-  </script>
+<style>
+  .table > :not(caption) > * > * { padding: 0.9rem 0.75rem; }
+  .badge.bg-warning-subtle{ background:#ffe8a3!important; color:#6e5200!important; }
+  .badge.bg-success-subtle{ background:#d1f7d9!important; color:#0a7f2e!important; }
+</style>
 {% endblock %}

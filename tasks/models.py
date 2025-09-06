@@ -35,6 +35,12 @@ class Task(models.Model):
     )
     is_delegated = models.BooleanField("Делегировано", default=False)
     is_completed = models.BooleanField(default=False)
+    delegated_from = models.ForeignKey(
+        User, related_name='delegated_tasks',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Делегировано от"
+    )
+    delegated_at = models.DateTimeField("Дата делегирования", null=True, blank=True)
 
     def __str__(self):
         return f"{self.title} (до {self.deadline.strftime('%d.%m.%Y')})"

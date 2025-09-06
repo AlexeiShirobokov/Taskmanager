@@ -1,242 +1,141 @@
 {% extends 'base.html' %}
-{% block title %}Создание задачи{% endblock %}
+{% block title %}{% if is_edit %}Редактирование{% else %}Новая задача{% endif %}{% endblock %}
+
 {% block content %}
-  <h2 class="text-center mb-4">Новая задача</h2>
+<div class="container my-4">
+  <h2 class="text-center fw-semibold mb-4">{% if is_edit %}Редактировать задачу{% else %}Новая задача{% endif %}</h2>
 
-  <div class="container">
-    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
-      {% csrf_token %}
+  <div class="card clean">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
 
-      <div class="mb-3">
-        <label for="id_title" class="form-label">Тема</label>
-        <input type="text" name="title" id="id_title" class="form-control" required maxlength="200">
-        <div class="invalid-feedback">Пожалуйста, введите тему задачи</div>
-      </div>
+        <div class="mb-3">
+          <label class="form-label">Тема *</label>
+          <input type="text" name="title" class="form-control" required
+                 value="{{ form.instance.title|default_if_none:'' }}">
+        </div>
 
-      <div class="mb-3">
-        <label for="id_description" class="form-label">Описание задачи</label>
-        <textarea name="description" id="id_description" class="form-control" rows="4" required></textarea>
-        <div class="invalid-feedback">Пожалуйста, введите описание задачи</div>
-      </div>
+        <div class="mb-3">
+          <label class="form-label">Описание задачи *</label>
+          <textarea name="description" class="form-control" rows="5" required>{{ form.instance.description }}</textarea>
+        </div>
 
-      <div class="mb-3">
-        <label for="id_deadline" class="form-label">Срок выполнения</label>
-        <input type="datetime-local" name="deadline" id="id_deadline" class="form-control" required>
-        <div class="invalid-feedback">Пожалуйста, укажите срок выполнения</div>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">Исполнитель</label>
-        <select name="responsible" class="form-select select2-search" required>
-          <option value="" disabled selected>Выберите исполнителя</option>
-          {% for user in users %}
-            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
-          {% endfor %}
-        </select>
-        <div class="invalid-feedback">Пожалуйста, выберите исполнителя</div>
-      </div>
-
-      <div class="mb-4" id="participant-container">
-        <label class="form-label">Дополнительные участники</label>
-        <div id="participant-rows">
-          <div class="row g-2 mb-2 participant-row align-items-center">
-            <div class="col-md-5">
-              <select name="participants" class="form-select select2-search">
-                <option value="" disabled selected>Выберите участника</option>
-                {% for user in users %}
-                  <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <select name="roles" class="form-select">
-                <option value="executor">Исполнитель</option>
-                <option value="responsible">Ответственный</option>
-                <option value="observer">Наблюдатель</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <button type="button" class="btn btn-outline-danger w-100" onclick="removeParticipantRow(this)">
-                <i class="bi bi-trash"></i> Удалить
-              </button>
-            </div>
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <label class="form-label">Срок выполнения *</label>
+            <input type="datetime-local" name="deadline" class="form-control" required
+                   value="{% if form.instance.deadline %}{{ form.instance.deadline|date:'Y-m-d\\TH:i' }}{% endif %}">
+          </div>
+          <div class="col-lg-6">
+            <label class="form-label">Ответственный *</label>
+            <select name="responsible" class="form-select" required>
+              <option value="" disabled {% if not form.instance.responsible %}selected{% endif %}>Выберите из списка</option>
+              {% for u in users %}
+                <option value="{{ u.id }}" {% if form.instance.responsible and u.id == form.instance.responsible.id %}selected{% endif %}>
+                  {{ u.get_full_name|default:u.username }}
+                </option>
+              {% endfor %}
+            </select>
           </div>
         </div>
-        <button type="button" class="btn btn-outline-primary mt-2" onclick="addParticipantRow()">
-          <i class="bi bi-plus-circle"></i> Добавить участника
-        </button>
-      </div>
 
-      <div class="mb-3">
-        <label for="id_files" class="form-label">Файлы (можно выбрать несколько)</label>
-        <input type="file" name="files" id="id_files" multiple class="form-control">
-      </div>
+        <div class="mt-4">
+          <div class="fw-semibold mb-2">Дополнительные участники</div>
+          <div id="participants-list" class="vstack gap-2">
+            {% if is_edit and current_participants %}
+              {% for p in current_participants %}
+                <div class="border rounded p-3">
+                  <div class="row g-2">
+                    <div class="col-lg-7">
+                      <select name="participants" class="form-select">
+                        <option value="" disabled>Выберите пользователя</option>
+                        {% for u in users %}
+                          <option value="{{ u.id }}" {% if u.id == p.user.id %}selected{% endif %}>
+                            {{ u.get_full_name|default:u.username }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-lg-3">
+                      <select name="roles" class="form-select">
+                        <option value="executor" {% if p.role == 'executor' %}selected{% endif %}>Исполнитель</option>
+                        <option value="responsible" {% if p.role == 'responsible' %}selected{% endif %}>Ответственный</option>
+                        <option value="observer" {% if p.role == 'observer' %}selected{% endif %}>Наблюдатель</option>
+                      </select>
+                    </div>
+                    <div class="col-lg-2 d-grid">
+                      <button type="button" class="btn btn-outline-danger remove-participant"><i class="bi bi-trash"></i> Удалить</button>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
 
-      <div class="d-grid">
-        <button class="btn btn-primary btn-lg" type="submit">Создать задачу</button>
-      </div>
-    </form>
+          <button type="button" id="add-participant" class="btn btn-outline-primary mt-2">
+            <i class="bi bi-plus-circle"></i> Добавить участника
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <div class="fw-semibold mb-2">Файлы</div>
+          <div class="input-group">
+            <input class="form-control" type="file" name="files" multiple>
+            <button class="btn btn-primary" type="submit">Загрузить вместе с задачей</button>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="{% url 'task_list' %}" class="btn btn-secondary">Отмена</a>
+          <button type="submit" class="btn btn-primary">{% if is_edit %}Сохранить{% else %}Создать задачу{% endif %}</button>
+        </div>
+      </form>
+    </div>
   </div>
+</div>
 
-  <!-- Подключаем Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<template id="participant-template">
+  <div class="border rounded p-3">
+    <div class="row g-2">
+      <div class="col-lg-7">
+        <select name="participants" class="form-select">
+          <option value="" disabled selected>Выберите пользователя</option>
+          {% for u in users %}
+            <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-3">
+        <select name="roles" class="form-select">
+          <option value="executor" selected>Исполнитель</option>
+          <option value="responsible">Ответственный</option>
+          <option value="observer">Наблюдатель</option>
+        </select>
+      </div>
+      <div class="col-lg-2 d-grid">
+        <button type="button" class="btn btn-outline-danger remove-participant"><i class="bi bi-trash"></i> Удалить</button>
+      </div>
+    </div>
+  </div>
+</template>
 
-  <!-- Подключаем Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const list = document.getElementById('participants-list');
+  const btn  = document.getElementById('add-participant');
+  const tpl  = document.getElementById('participant-template');
 
-  <!-- Подключаем Select2 для поиска в выпадающих списках -->
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+  btn?.addEventListener('click', () => {
+    const node = tpl.content.cloneNode(true);
+    list.appendChild(node);
+  });
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-  <script>
-    // Инициализация Select2 после загрузки страницы
-    document.addEventListener('DOMContentLoaded', function() {
-      // Инициализируем Select2 для всех элементов с классом select2-search
-      $('.select2-search').select2({
-        theme: "bootstrap-5",
-        width: '100%',
-        placeholder: 'Начните вводить для поиска',
-        language: {
-          noResults: function() {
-            return "Ничего не найдено";
-          },
-          searching: function() {
-            return "Поиск...";
-          }
-        }
-      });
-
-      // Валидация формы
-      var forms = document.querySelectorAll('.needs-validation');
-      Array.prototype.slice.call(forms).forEach(function(form) {
-        form.addEventListener('submit', function(event) {
-          if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          form.classList.add('was-validated');
-        }, false);
-      });
-    });
-
-    function addParticipantRow() {
-      const container = document.getElementById('participant-rows');
-      const template = document.querySelector('.participant-row');
-      const newRow = template.cloneNode(true);
-
-      // Сбрасываем значения
-      newRow.querySelectorAll('select').forEach(select => {
-        select.selectedIndex = 0;
-        // Удаляем классы Select2, если они есть
-        if (select.classList.contains('select2-hidden-accessible')) {
-          $(select).siblings('.select2-container').remove();
-          select.classList.remove('select2-hidden-accessible');
-        }
-      });
-
-      container.appendChild(newRow);
-
-      // Инициализируем Select2 для новых элементов
-      $(newRow).find('.select2-search').select2({
-        theme: "bootstrap-5",
-        width: '100%',
-        placeholder: 'Начните вводить для поиска',
-        language: {
-          noResults: function() {
-            return "Ничего не найдено";
-          },
-          searching: function() {
-            return "Поиск...";
-          }
-        }
-      });
+  list?.addEventListener('click', (e) => {
+    if (e.target.closest('.remove-participant')) {
+      e.target.closest('.border.rounded').remove();
     }
-
-    function removeParticipantRow(button) {
-      const row = button.closest('.participant-row');
-      const container = document.getElementById('participant-rows');
-
-      // Уничтожаем Select2 перед удалением, если он был инициализирован
-      const select2Elements = $(row).find('.select2-search');
-      if (select2Elements.length > 0) {
-        select2Elements.select2('destroy');
-      }
-
-      if (container.children.length > 1) {
-        container.removeChild(row);
-      }
-    }
-  </script>
-
-  <style>
-    body {
-      background-color: #f8f9fa;
-      padding: 20px 0;
-    }
-
-    .container {
-      max-width: 800px;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-    }
-
-    h2 {
-      color: #0d6efd;
-      font-weight: 600;
-    }
-
-    .form-label {
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(45deg, #0d6efd, #0a58ca);
-      border: none;
-      padding: 12px;
-      font-weight: 500;
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(45deg, #0a58ca, #084298);
-    }
-
-    .btn-outline-primary {
-      font-weight: 500;
-    }
-
-    .btn-outline-danger {
-      font-weight: 500;
-    }
-
-    /* Стили для Select2 с Bootstrap */
-    .select2-container--bootstrap-5 .select2-selection {
-      min-height: 38px;
-      padding: 5px;
-    }
-
-    /* Убираем стрелки у выпадающих списков для дополнительных участников */
-    #participant-container select {
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-      background-image: none;
-    }
-
-    /* Анимация для кнопок */
-    .btn {
-      transition: all 0.2s ease;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-  </style>
+  });
+});
+</script>
 {% endblock %}
