@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Редактирование проекта{% else %}Новый проект{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container my-4" style="max-width:1100px;">
+  <h1 class="text-center fw-bold mb-4">{% if is_edit %}Редактировать проект{% else %}Новый проект{% endif %}</h1>
+
+  <div class="card clean border-0 rounded-3">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        <!-- Основные поля проекта -->
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <label class="form-label">Название *</label>
+            {{ form.title }}
+          </div>
+          <div class="col-lg-3">
+            <label class="form-label">Руководитель проекта</label>
+            {{ form.manager }}
+          </div>
+          <div class="col-lg-3">
+            <label class="form-label">Срок</label>
+            {{ form.deadline }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Описание</label>
+            {{ form.description }}
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Чек-лист -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Чек-лист</h5>
+          <button type="button" id="add-item" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> Добавить пункт
+          </button>
+        </div>
+
+        {{ formset.management_form }}
+        <div id="items-container" class="vstack gap-3">
+          {% for f in formset.forms %}
+            <div class="border rounded p-3 item-row">
+              {% if f.instance.pk %}
+                <input type="hidden" name="{{ f.prefix }}-id" value="{{ f.instance.pk }}">
+              {% endif %}
+
+              <div class="row g-2 align-items-start">
+                <div class="col-lg-6">
+                  <label class="form-label">Пункт *</label>
+                  {{ f.title }}
+                </div>
+                <div class="col-lg-3">
+                  <label class="form-label">Срок</label>
+                  {{ f.deadline }}
+                </div>
+                <div class="col-lg-1">
+                  <label class="form-label">Порядок</label>
+                  {{ f.order }}
+                </div>
+                <div class="col-lg-2">
+                  <label class="form-label">Готово</label>
+                  <div>{{ f.is_completed }}</div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Исполнители (можно выбрать несколько)</label>
+                  {{ f.assignees }}
+                </div>
+
+                {% if formset.can_delete %}
+                <div class="col-12">
+                  <div class="form-check">
+                    {{ f.DELETE }} <label class="form-check-label">Удалить пункт</label>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Пустой шаблон пункта (JS подставит индексы) -->
+        <template id="item-empty">
+          <div class="border rounded p-3 item-row">
+            <div class="row g-2 align-items-start">
+              <div class="col-lg-6">
+                <label class="form-label">Пункт *</label>
+                <input type="text" name="__prefix__-title" class="form-control" required>
+              </div>
+              <div class="col-lg-3">
+                <label class="form-label">Срок</label>
+                <input type="datetime-local" name="__prefix__-deadline" class="form-control">
+              </div>
+              <div class="col-lg-1">
+                <label class="form-label">Порядок</label>
+                <input type="number" name="__prefix__-order" class="form-control" value="0" min="0">
+              </div>
+              <div class="col-lg-2">
+                <label class="form-label">Готово</label>
+                <div><input type="checkbox" name="__prefix__-is_completed" class="form-check-input"></div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Исполнители (можно выбрать несколько)</label>
+                <select name="__prefix__-assignees" class="form-select" multiple size="4">
+                  {% for u in users %}
+                    <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              {% if formset.can_delete %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input type="checkbox" name="__prefix__-DELETE" class="form-check-input" id="id___prefix__-DELETE">
+                  <label class="form-check-label" for="id___prefix__-DELETE">Удалить пункт</label>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </template>
+
+        <!-- Действия -->
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          {% if is_edit and project %}
+            <a href="{% url 'project_detail' project.pk %}" class="btn btn-secondary">Отмена</a>
+          {% else %}
+            <a href="{% url 'task_list' %}" class="btn btn-secondary">Отмена</a>
+          {% endif %}
+          <button type="submit" class="btn btn-primary">
+            {% if is_edit %}Сохранить{% else %}Создать проект{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const addBtn   = document.getElementById('add-item');
+    const cont     = document.getElementById('items-container');
+    const tmpl     = document.getElementById('item-empty');
+    const totalInp = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
+
+    if(addBtn && totalInp){
+      addBtn.addEventListener('click', () => {
+        const idx = parseInt(totalInp.value || '0', 10);
+        const html = tmpl.innerHTML.replaceAll('__prefix__', '{{ formset.prefix }}-' + idx);
+        cont.insertAdjacentHTML('beforeend', html);
+        totalInp.value = idx + 1;
+      });
+    }
+  })();
+</script>
+{% endblock %}

@@ -2,25 +2,28 @@
 {% block title %}{% if is_edit %}Редактирование{% else %}Новая задача{% endif %}{% endblock %}
 
 {% block content %}
-<div class="container my-4">
-  <h2 class="text-center fw-semibold mb-4">{% if is_edit %}Редактировать задачу{% else %}Новая задача{% endif %}</h2>
+<div class="container my-4" style="max-width:1100px;">
+  <h1 class="text-center fw-bold mb-4">{% if is_edit %}Редактировать задачу{% else %}Новая задача{% endif %}</h1>
 
-  <div class="card clean">
+  <div class="card clean border-0 rounded-3">
     <div class="card-body">
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
 
+        <!-- Тема -->
         <div class="mb-3">
           <label class="form-label">Тема *</label>
           <input type="text" name="title" class="form-control" required
-                 value="{{ form.instance.title|default_if_none:'' }}">
+                 value="{{ form.instance.title|default_if_none:'' }}" placeholder="">
         </div>
 
+        <!-- Описание -->
         <div class="mb-3">
           <label class="form-label">Описание задачи *</label>
-          <textarea name="description" class="form-control" rows="5" required>{{ form.instance.description }}</textarea>
+          <textarea name="description" class="form-control" rows="7" required>{{ form.instance.description }}</textarea>
         </div>
 
+        <!-- Срок + Ответственный -->
         <div class="row g-3">
           <div class="col-lg-6">
             <label class="form-label">Срок выполнения *</label>
@@ -30,9 +33,10 @@
           <div class="col-lg-6">
             <label class="form-label">Ответственный *</label>
             <select name="responsible" class="form-select" required>
-              <option value="" disabled {% if not form.instance.responsible %}selected{% endif %}>Выберите из списка</option>
+              <option value="" {% if not form.instance.responsible %}selected{% endif %}>Выберите из списка</option>
               {% for u in users %}
-                <option value="{{ u.id }}" {% if form.instance.responsible and u.id == form.instance.responsible.id %}selected{% endif %}>
+                <option value="{{ u.id }}"
+                        {% if form.instance.responsible and u.id == form.instance.responsible.id %}selected{% endif %}>
                   {{ u.get_full_name|default:u.username }}
                 </option>
               {% endfor %}
@@ -40,16 +44,23 @@
           </div>
         </div>
 
+        <!-- Дополнительные участники -->
         <div class="mt-4">
-          <div class="fw-semibold mb-2">Дополнительные участники</div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0">Дополнительные участники</label>
+            <button type="button" id="add-participant" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-plus-lg"></i> Добавить участника
+            </button>
+          </div>
+
           <div id="participants-list" class="vstack gap-2">
             {% if is_edit and current_participants %}
               {% for p in current_participants %}
-                <div class="border rounded p-3">
-                  <div class="row g-2">
+                <div class="border rounded p-3 participant-row">
+                  <div class="row g-2 align-items-center">
                     <div class="col-lg-7">
                       <select name="participants" class="form-select">
-                        <option value="" disabled>Выберите пользователя</option>
+                        <option value="">Выберите пользователя</option>
                         {% for u in users %}
                           <option value="{{ u.id }}" {% if u.id == p.user.id %}selected{% endif %}>
                             {{ u.get_full_name|default:u.username }}
@@ -65,42 +76,45 @@
                       </select>
                     </div>
                     <div class="col-lg-2 d-grid">
-                      <button type="button" class="btn btn-outline-danger remove-participant"><i class="bi bi-trash"></i> Удалить</button>
+                      <button type="button" class="btn btn-outline-danger remove-participant">
+                        <i class="bi bi-trash"></i>
+                      </button>
                     </div>
                   </div>
                 </div>
               {% endfor %}
             {% endif %}
           </div>
-
-          <button type="button" id="add-participant" class="btn btn-outline-primary mt-2">
-            <i class="bi bi-plus-circle"></i> Добавить участника
-          </button>
         </div>
 
+        <!-- Файлы -->
         <div class="mt-4">
-          <div class="fw-semibold mb-2">Файлы</div>
+          <label class="form-label d-block">Файлы</label>
           <div class="input-group">
             <input class="form-control" type="file" name="files" multiple>
             <button class="btn btn-primary" type="submit">Загрузить вместе с задачей</button>
           </div>
         </div>
 
+        <!-- Действия -->
         <div class="d-flex justify-content-end gap-2 mt-4">
           <a href="{% url 'task_list' %}" class="btn btn-secondary">Отмена</a>
-          <button type="submit" class="btn btn-primary">{% if is_edit %}Сохранить{% else %}Создать задачу{% endif %}</button>
+          <button type="submit" class="btn btn-primary">
+            {% if is_edit %}Сохранить{% else %}Создать задачу{% endif %}
+          </button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
+<!-- Шаблон строки участника -->
 <template id="participant-template">
-  <div class="border rounded p-3">
-    <div class="row g-2">
+  <div class="border rounded p-3 participant-row">
+    <div class="row g-2 align-items-center">
       <div class="col-lg-7">
         <select name="participants" class="form-select">
-          <option value="" disabled selected>Выберите пользователя</option>
+          <option value="">Выберите пользователя</option>
           {% for u in users %}
             <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
           {% endfor %}
@@ -114,28 +128,30 @@
         </select>
       </div>
       <div class="col-lg-2 d-grid">
-        <button type="button" class="btn btn-outline-danger remove-participant"><i class="bi bi-trash"></i> Удалить</button>
+        <button type="button" class="btn btn-outline-danger remove-participant">
+          <i class="bi bi-trash"></i>
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const list = document.getElementById('participants-list');
-  const btn  = document.getElementById('add-participant');
-  const tpl  = document.getElementById('participant-template');
+  document.addEventListener('DOMContentLoaded', () => {
+    const list = document.getElementById('participants-list');
+    const addBtn = document.getElementById('add-participant');
+    const tpl = document.getElementById('participant-template');
 
-  btn?.addEventListener('click', () => {
-    const node = tpl.content.cloneNode(true);
-    list.appendChild(node);
-  });
+    addBtn?.addEventListener('click', () => {
+      list.insertAdjacentHTML('beforeend', tpl.innerHTML);
+    });
 
-  list?.addEventListener('click', (e) => {
-    if (e.target.closest('.remove-participant')) {
-      e.target.closest('.border.rounded').remove();
-    }
+    list?.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('.remove-participant');
+      if (removeBtn) {
+        removeBtn.closest('.participant-row').remove();
+      }
+    });
   });
-});
 </script>
 {% endblock %}

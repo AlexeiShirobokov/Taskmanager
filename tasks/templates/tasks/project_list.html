@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Проекты{% endblock %}
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold mb-0">Проекты</h2>
+    <a class="btn btn-success" href="{% url 'project_create' %}"><i class="bi bi-plus-lg"></i> Новый проект</a>
+  </div>
+
+  <form class="mb-3" method="get">
+    <div class="input-group">
+      <input type="search" class="form-control" placeholder="Поиск по названию/описанию/ФИО" name="q" value="{{ q }}">
+      <button class="btn btn-outline-secondary">Искать</button>
+    </div>
+  </form>
+
+  {% if projects %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Название</th>
+            <th>Руководитель</th>
+            <th>Создан</th>
+            <th>Срок</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in projects %}
+          <tr>
+            <td><a href="{% url 'project_detail' p.pk %}" class="fw-semibold">{{ p.title }}</a></td>
+            <td>{{ p.manager.get_full_name|default:p.manager.username|default:"—" }}</td>
+            <td>{{ p.created_at|date:"d.m.Y H:i" }}</td>
+            <td>{% if p.deadline %}{{ p.deadline|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">Проектов пока нет.</p>
+  {% endif %}
+</div>
+{% endblock %}

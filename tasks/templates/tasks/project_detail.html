@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.title }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-0">{{ project.title }}</h2>
+      <div class="small text-muted">#{{ project.id }}</div>
+    </div>
+    <div class="d-flex gap-2">
+      {% if can_edit %}
+        <a class="btn btn-outline-secondary" href="{% url 'project_edit' project.pk %}">
+          <i class="bi bi-pencil"></i> Редактировать
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Левая колонка -->
+    <div class="col-lg-8">
+      <!-- Информация -->
+      <div class="card clean mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Информация о проекте</h5>
+          <div class="row">
+            <div class="col-md-6 mb-2"><strong>Автор:</strong> {{ project.creator.get_full_name|default:project.creator.username }}</div>
+            <div class="col-md-6 mb-2"><strong>Руководитель:</strong> {{ project.manager.get_full_name|default:project.manager.username|default:"—" }}</div>
+            <div class="col-md-6 mb-2"><strong>Создан:</strong> {{ project.created_at|date:"d.m.Y H:i" }}</div>
+            <div class="col-md-6 mb-2"><strong>Срок:</strong> {% if project.deadline %}{{ project.deadline|date:"d.m.Y H:i" }}{% else %}—{% endif %}</div>
+          </div>
+          {% if project.description %}
+          <div class="mt-2">
+            <strong>Описание:</strong>
+            <p class="mb-0">{{ project.description|linebreaksbr }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Чек-лист -->
+      <div class="card clean mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Чек-лист</h5>
+          {% if items %}
+            <ul class="list-group">
+              {% for it in items %}
+              <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                  <div class="fw-semibold">
+                    {% if it.is_completed %}<i class="bi bi-check2-circle text-success me-1"></i>{% endif %}
+                    {{ it.title }}
+                  </div>
+                  <div class="small text-muted">
+                    {% if it.deadline %}Срок: {{ it.deadline|date:"d.m.Y H:i" }} • {% endif %}
+                    Исполнители:
+                    {% for u in it.assignees.all %}
+                      <span class="badge bg-light text-dark">{{ u.get_full_name|default:u.username }}</span>
+                    {% empty %} — {% endfor %}
+                  </div>
+                </div>
+                <span class="badge {% if it.is_completed %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                  {% if it.is_completed %}Готово{% else %}В работе{% endif %}
+                </span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">Пункты не добавлены</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Обсуждение -->
+      <div class="card clean">
+        <div class="card-body">
+          <h5 class="mb-3">Обсуждение</h5>
+
+          {% if messages %}
+            <div class="mb-3">
+              {% for m in messages %}
+              <div class="border rounded-3 p-2 mb-2">
+                <div class="d-flex justify-content-between">
+                  <strong>{{ m.sender.get_full_name|default:m.sender.username }}</strong>
+                  <small class="text-muted">{{ m.timestamp|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div>{{ m.content|linebreaksbr }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted">Нет сообщений</p>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-2">
+              <textarea name="pmsg" class="form-control" rows="2" placeholder="Напишите сообщение..."></textarea>
+            </div>
+            <button class="btn btn-success"><i class="bi bi-send"></i> Отправить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="col-lg-4">
+      <!-- Участники -->
+      <div class="card clean mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Участники</h5>
+          {% if members %}
+            <ul class="list-unstyled mb-0">
+              {% for m in members %}
+                <li class="mb-1">
+                  {{ m.user.get_full_name|default:m.user.username }}
+                  <span class="badge bg-light text-dark">{{ m.get_role_display }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">Нет участников</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Файлы -->
+      <div class="card clean">
+        <div class="card-body">
+          <h5 class="mb-3">Файлы</h5>
+
+          {% if can_upload_files %}
+          <form method="post" action="{% url 'project_upload_files' project.pk %}" enctype="multipart/form-data" class="mb-3">
+            {% csrf_token %}
+            <input type="file" name="files" multiple class="form-control mb-2">
+            <button class="btn btn-primary">Загрузить</button>
+          </form>
+          {% endif %}
+
+          {% if project.files.all %}
+            <ul class="list-unstyled">
+              {% for f in project.files.all|dictsortreversed:"uploaded_at" %}
+                <li class="mb-2">
+                  <i class="bi bi-file-earmark"></i>
+                  <a href="{{ f.file.url }}" class="ms-1">{{ f.filename }}</a><br>
+                  <small class="text-muted">{{ f.file.size|filesizeformat }} • {{ f.uploaded_at|date:"d.m.Y H:i" }}</small>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted mb-0">Файлов нет</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -30,4 +30,11 @@ urlpatterns = [
     path('task/<int:pk>/upload-files/', views.upload_files, name='upload_files'),
     path('task/<int:pk>/delegate/', views.delegate_task, name='delegate_task'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path("projects/new/", views.project_create, name="project_create"),
+    # Project
+    path("projects/new/", views.project_create, name="project_create"),
+    path("projects/<int:pk>/", views.project_detail, name="project_detail"),
+    path("projects/<int:pk>/edit/", views.project_edit, name="project_edit"),
+    path("projects/<int:pk>/upload/", views.project_upload_files, name="project_upload_files"),
+    path("projects/", views.project_list, name="project_list"),
 ]

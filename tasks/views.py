@@ -8,9 +8,24 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from io import BytesIO
 import pandas as pd
+from .models import Project, ProjectMember, ProjectItem, ProjectItemAssignee, ProjectMessage
+from django.contrib import messages
+from django.forms import inlineformset_factory
+from .forms import ProjectForm, ProjectItemFormSet
 
 from .forms import TaskForm
 from .models import Task, TaskParticipant, TaskMessage, TaskFile, User
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponseForbidden
+from django.contrib import messages
+from django.utils import timezone
+
+from .models import (
+    Project, ProjectMember, ProjectItem, ProjectItemAssignee, ProjectMessage, ProjectFile
+)
+from .forms import ProjectForm, ProjectItemFormSet
+from django.contrib.auth.models import User
 
 # ===== Вспомогательные =====
 def get_user_role(user, task):
@@ -325,3 +340,142 @@ def dashboard(request):
         # при желании добавь графики и пр., как раньше
     }
     return render(request, "tasks/dashboard.html", context)
+
+# --- Create project ---
+
+# права
+def user_can_access_project(user, project):
+    return (
+        project.creator_id == user.id
+        or (project.manager_id == user.id if project.manager_id else False)
+        or project.members.filter(user=user).exists()
+    )
+
+def user_can_edit_project(user, project):
+    return project.creator_id == user.id or project.manager_id == user.id
+
+def user_can_upload_project_files(user, project):
+    # ровно как в задачах: любой имеющий доступ — может загружать
+    return user_can_access_project(user, project)
+
+@login_required
+def project_create(request):
+    users = User.objects.order_by('first_name','last_name','username')
+    if request.method == "POST":
+        form = ProjectForm(request.POST)
+        formset = ProjectItemFormSet(request.POST, instance=Project())
+        for f in formset.forms:
+            f.fields["assignees"].queryset = users
+
+        if form.is_valid() and formset.is_valid():
+            project = form.save(commit=False); project.creator = request.user; project.save()
+            formset.instance = project; formset.save()
+
+            # привяжем исполнителей
+            for f in formset.forms:
+                if not f.cleaned_data or f.cleaned_data.get("DELETE"): continue
+                item = f.instance
+                assignees = f.cleaned_data.get("assignees")
+                if assignees:
+                    ProjectItemAssignee.objects.bulk_create(
+                        [ProjectItemAssignee(item=item, user=u) for u in assignees],
+                        ignore_conflicts=True
+                    )
+
+            if project.manager_id:
+                ProjectMember.objects.get_or_create(project=project, user_id=project.manager_id, defaults={'role':'manager'})
+            messages.success(request, "Проект создан")
+            return redirect("project_detail", pk=project.pk)
+    else:
+        form = ProjectForm()
+        formset = ProjectItemFormSet(instance=Project())
+        for f in formset.forms:
+            f.fields["assignees"].queryset = users
+
+    return render(request, "tasks/project_form.html", {"form":form,"formset":formset,"users":users})
+
+@login_required
+def project_edit(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if not user_can_edit_project(request.user, project):
+        return HttpResponseForbidden("Нет прав")
+
+    users = User.objects.order_by('first_name','last_name','username')
+    if request.method == "POST":
+        form = ProjectForm(request.POST, instance=project)
+        formset = ProjectItemFormSet(request.POST, instance=project)
+        for f in formset.forms: f.fields["assignees"].queryset = users
+
+        if form.is_valid() and formset.is_valid():
+            form.save(); formset.save()
+            ProjectItemAssignee.objects.filter(item__project=project).delete()
+            for f in formset.forms:
+                if not f.cleaned_data or f.cleaned_data.get("DELETE"): continue
+                item = f.instance
+                assignees = f.cleaned_data.get("assignees")
+                if assignees:
+                    ProjectItemAssignee.objects.bulk_create(
+                        [ProjectItemAssignee(item=item, user=u) for u in assignees],
+                        ignore_conflicts=True
+                    )
+            if project.manager_id:
+                ProjectMember.objects.get_or_create(project=project, user_id=project.manager_id, defaults={'role':'manager'})
+            messages.success(request, "Проект обновлён")
+            return redirect("project_detail", pk=project.pk)
+    else:
+        form = ProjectForm(instance=project)
+        formset = ProjectItemFormSet(instance=project)
+        for f in formset.forms:
+            f.fields["assignees"].queryset = users
+            if f.instance.pk:
+                f.initial["assignees"] = f.instance.assignees.values_list("pk", flat=True)
+
+    return render(request, "tasks/project_form.html", {"form":form,"formset":formset,"project":project,"is_edit":True,"users":users})
+
+
+# --- Detail project ---
+
+@login_required
+def project_detail(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if not user_can_access_project(request.user, project):
+        return HttpResponseForbidden("Нет доступа к проекту")
+
+    # отправка сообщения
+    if request.method == "POST" and "pmsg" in request.POST:
+        text = request.POST.get("pmsg", "").strip()
+        if text:
+            ProjectMessage.objects.create(project=project, sender=request.user, content=text)
+            return redirect("project_detail", pk=pk)
+
+    items = project.items.prefetch_related("assignees")
+    members = project.members.select_related("user")
+    messages_qs = project.messages.select_related("sender").order_by("timestamp")
+
+    can_edit = user_can_edit_project(request.user, project)
+    can_upload = user_can_upload_project_files(request.user, project)
+
+    return render(request, "tasks/project_detail.html", {
+        "project": project,
+        "items": items,
+        "members": members,
+        "messages": messages_qs,
+        "can_edit": can_edit,
+        "can_upload_files": can_upload,
+    })
+
+@login_required
+def project_upload_files(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if not user_can_upload_project_files(request.user, project):
+        return HttpResponseForbidden("Нет прав для загрузки файлов")
+    if request.method == "POST":
+        for f in request.FILES.getlist("files"):
+            ProjectFile.objects.create(project=project, file=f, uploaded_by=request.user)
+        messages.success(request, "Файлы загружены")
+    return redirect("project_detail", pk=pk)
+
+@login_required
+def project_list(request):
+    projects = Project.objects.all().select_related("manager").order_by("-created_at")
+    return render(request, "tasks/project_list.html", {"projects": projects})
