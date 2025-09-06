@@ -27,6 +27,28 @@ def get_user_role(user, task):
     return '-'
 
 
+def user_can_access_task(user, task):
+    """Проверяет, имеет ли пользователь доступ к задаче"""
+    return (user == task.creator or
+            user == task.responsible or
+            task.participants.filter(user=user).exists())
+
+
+def user_can_upload_files(user, task):
+    """Проверяет, может ли пользователь загружать файлы"""
+    return user_can_access_task(user, task)
+
+
+def user_can_complete_task(user, task):
+    """Проверяет, может ли пользователь завершить задачу"""
+    return (user == task.creator or
+            user == task.responsible or
+            task.participants.filter(
+                user=user,
+                role__in=['executor', 'responsible']
+            ).exists())
+
+
 @login_required
 def task_list(request):
     query = request.GET.get('q', '')
@@ -170,24 +192,22 @@ def task_create(request):
 def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
-    # Проверка прав доступа
-    if not (request.user == task.creator or
-            request.user == task.responsible or
-            task.participants.filter(user=request.user).exists()):
+    # Проверка прав доступа - разрешаем всем участникам задачи
+    if not user_can_access_task(request.user, task):
         return HttpResponseForbidden("У вас нет доступа к этой задаче")
 
     participants = TaskParticipant.objects.filter(task=task)
     task_messages = task.messages.all().order_by('timestamp')
 
-    can_complete = (
-            request.user == task.creator or
-            request.user == task.responsible or
-            TaskParticipant.objects.filter(task=task, user=request.user, role__in=['executor', 'responsible']).exists()
-    )
+    can_complete = user_can_complete_task(request.user, task)
+    can_upload_files = user_can_upload_files(request.user, task)
 
     if request.method == 'POST':
         # Обработка загрузки файлов
         if 'files' in request.FILES:
+            if not can_upload_files:
+                return HttpResponseForbidden("У вас нет прав для загрузки файлов")
+
             files = request.FILES.getlist('files')
             for file in files:
                 TaskFile.objects.create(
@@ -214,6 +234,7 @@ def task_detail(request, pk):
         'participants': participants,
         'task_messages': task_messages,
         'can_complete': can_complete,
+        'can_upload_files': can_upload_files,
     })
 
 
@@ -222,10 +243,7 @@ def complete_task(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
     # Проверка прав доступа
-    if not (request.user == task.creator or
-            request.user == task.responsible or
-            TaskParticipant.objects.filter(task=task, user=request.user,
-                                           role__in=['executor', 'responsible']).exists()):
+    if not user_can_complete_task(request.user, task):
         return HttpResponseForbidden("У вас нет прав для завершения этой задачи")
 
     if not task.is_completed:
@@ -240,10 +258,8 @@ def complete_task(request, pk):
 def upload_files(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
-    # Проверка прав доступа
-    if not (request.user == task.creator or
-            request.user == task.responsible or
-            task.participants.filter(user=request.user).exists()):
+    # Проверка прав доступа - разрешаем всем участникам задачи
+    if not user_can_upload_files(request.user, task):
         return HttpResponseForbidden("У вас нет прав для загрузки файлов в эту задачу")
 
     if request.method == 'POST':
@@ -257,7 +273,6 @@ def upload_files(request, pk):
         messages.success(request, f'Загружено {len(files)} файлов')
 
     return redirect('task_detail', pk=task.pk)
-
 
 @login_required
 def dashboard(request):

@@ -34,7 +34,7 @@
     <h3 class="title is-5">Файлы</h3>
 
     <!-- Форма загрузки файлов -->
-    {% if user in task.participants.all or user == task.creator or user == task.responsible %}
+    {% if can_upload_files %}
     <form method="post" enctype="multipart/form-data" action="{% url 'upload_files' task.pk %}">
       {% csrf_token %}
       <div class="field">
