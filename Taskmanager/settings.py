@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-%j+^#ukmtl#e!a91pb+!qe6#3y&e+9t%6o5ugki+whe_-t$lp3"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-#DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['ваш-домен.ru', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -84,6 +84,17 @@ DATABASES = {
     }
 }
 
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'taskmanager_db',     # Имя базы данных, которую вы создали
+        'USER': 'postgres',         # Имя пользователя PostgreSQL (по умолчанию часто 'postgres')
+        'PASSWORD': 'Silver123', # Пароль, который вы задали при установке
+        'HOST': 'localhost',      # Сервер (оставляем localhost)
+        'PORT': '5432',           # Порт (по умолчанию 5432)
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
